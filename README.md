@@ -64,7 +64,7 @@ const SHEETCONFIG = readOnlyObject({
         C: { name: 'joinDate',   type: 'date' },
         D: { name: 'department', type: 'string' },
         E: { name: 'score',      type: 'number' },
-        F: {
+        F: { // calculated column
           name: 'relativeScore',
           formula: 'IF(ISBLANK($score), "", $score / AVERAGE(E5:E))',
           lock: true
@@ -72,7 +72,7 @@ const SHEETCONFIG = readOnlyObject({
       },
       namedRanges: {
         'B1': { name: 'selectDepartment', type: 'string' },
-        'E1': {
+        'E1': { // calculated named-range
           name: 'cellE1',
           args: ['selectDepartment'],
           formula: forE1,
@@ -121,7 +121,7 @@ function onOpen(e)
 {
   const ss = e.source;
 
-  if (DEBUG) clearAll(ss); // optional: reset data in dev
+  if (DEBUG) clearAll(ss); // optional: reset the spreadsheet in dev
 
   const currentEditors = new Set(ss.getEditors().map(e => e.getEmail()));
   const newEditors = editors
@@ -187,7 +187,7 @@ These triggers:
     * `layout` → define structure: `columns`, `namedRanges`, `headerRows`
     * `onEditRules` → define edit logic conditionally
     * `validationRules` → dynamic input validation
-    * `formattingRules` → apply conditional formatting
+    * `formattingRules` → conditional formatting to be applied
     * `namedFunctions` → for future support
 
 * **SmartSheet Methods**
