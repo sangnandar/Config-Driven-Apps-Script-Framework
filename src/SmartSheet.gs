@@ -183,20 +183,20 @@ class SmartSheet
    */
   getColumnValues(columnName)
   {
-    const headerRowCount = this.getHeaderRowCount();
-    const columnName = this.getColumnNumbers()[columnName];
+    const headerRows = this.getHeaderRowCount();
+    const columnNumber = this.getColumnNumbers()[columnName];
 
-    if (!columnName) throw new Error(`Unknown column name: ${columnName}`);
+    if (!columnNumber) throw new Error(`Unknown column name: ${columnName}`);
 
     const maxRows = this.sheet.getMaxRows();
-    const lastRow = this.sheet.getRange(maxRows, columnName)
+    const lastRow = this.sheet.getRange(maxRows, columnNumber)
                               .getNextDataCell(SpreadsheetApp.Direction.UP)
                               .getRow();
 
     // If there's no data below headerRows, return empty array
-    if (lastRow <= headerRowCount) return [];
+    if (lastRow <= headerRows) return [];
 
-    const range = this.sheet.getRange(headerRowCount + 1, columnName, lastRow - headerRowCount, 1);
+    const range = this.sheet.getRange(headerRows + 1, columnNumber, lastRow - headerRows, 1);
     return range.getValues().flat();
   }
 
