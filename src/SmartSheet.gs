@@ -1,4 +1,3 @@
-
 /**
  * A utility class for handling structured data access in a Google Sheets sheet.
  *
@@ -10,12 +9,15 @@
 class SmartSheet
 {
   /**
-   * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet to wrap.
+   * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet object
+   * @param {Object} configObject - (Optional) The configuration object (SHEETCONFIG or EXTERNAL_SHEETCONFIG)
    */
-  constructor(sheet)
+  constructor(sheet, configObject)
   {
     this.sheet = sheet;
     this.sheetName = sheet.getName();
+    this.config = configObject || SHEETCONFIG;
+    this.sheetConfig = this.config[this.sheetName] || {};
 
     // Memoize the lookups
     this._calculatedColumns = null;
@@ -34,7 +36,7 @@ class SmartSheet
    */
   getHeaderRowCount()
   {
-    return SHEETCONFIG[this.sheetName]?.layout?.headerRows ?? 0;
+    return this.sheetConfig.layout?.headerRows ?? 0;
   }
 
   /**
@@ -45,7 +47,7 @@ class SmartSheet
    */
   getColumnConfig()
   {
-    return SHEETCONFIG[this.sheetName]?.layout?.columns ?? {};
+    return this.sheetConfig.layout?.columns ?? {};
   }
 
   /**
@@ -56,7 +58,7 @@ class SmartSheet
    */
   getNamedRangeConfig()
   {
-    return SHEETCONFIG[this.sheetName]?.layout?.namedRanges ?? {};
+    return this.sheetConfig.layout?.namedRanges ?? {};
   }
 
   /**
@@ -69,11 +71,11 @@ class SmartSheet
   {
     if (this._calculatedColumns !== null) return this._calculatedColumns;
 
-    const colConfig = this.getColumnConfig();
+    const columnConfig = this.getColumnConfig();
     this._calculatedColumns = {};
-    for (const colLetter in colConfig) {
-      if (colConfig[colLetter].hasOwnProperty('formula')) {
-        this._calculatedColumns[colLetter] = colConfig[colLetter];
+    for (const columnLetter in columnConfig) {
+      if (columnConfig[columnLetter].hasOwnProperty('formula')) {
+        this._calculatedColumns[columnLetter] = columnConfig[columnLetter];
       }
     }
     return this._calculatedColumns;
@@ -89,11 +91,11 @@ class SmartSheet
   {
     if (this._calculatedNamedRanges !== null) return this._calculatedNamedRanges;
 
-    const rangeConfig = this.getNamedRangeConfig();
+    const namedRangeConfig = this.getNamedRangeConfig();
     this._calculatedNamedRanges = {};
-    for (const notation in rangeConfig) {
-      if (rangeConfig[notation].hasOwnProperty('formula')) {
-        this._calculatedNamedRanges[notation] = rangeConfig[notation];
+    for (const notation in namedRangeConfig) {
+      if (namedRangeConfig[notation].hasOwnProperty('formula')) {
+        this._calculatedNamedRanges[notation] = namedRangeConfig[notation];
       }
     }
     return this._calculatedNamedRanges;
@@ -108,11 +110,11 @@ class SmartSheet
   {
     if (this._columnLetters !== null) return this._columnLetters;
 
-    const colConfig = this.getColumnConfig();
+    const columnConfig = this.getColumnConfig();
     this._columnLetters = {};
-    for (const colLetter in colConfig) {
-      const { name } = colConfig[colLetter];
-      this._columnLetters[name] = colLetter.toUpperCase();
+    for (const columnLetter in columnConfig) {
+      const { name } = columnConfig[columnLetter];
+      this._columnLetters[name] = columnLetter.toUpperCase();
     }
     return this._columnLetters;
   }
@@ -126,10 +128,10 @@ class SmartSheet
   {
     if (this._columnTypes !== null) return this._columnTypes;
 
-    const colConfig = this.getColumnConfig();
+    const columnConfig = this.getColumnConfig();
     this._columnTypes = {};
-    for (const colLetter in colConfig) {
-      const { name, type } = colConfig[colLetter];
+    for (const columnLetter in columnConfig) {
+      const { name, type } = columnConfig[columnLetter];
       this._columnTypes[name] = type;
     }
     return this._columnTypes;
@@ -144,11 +146,11 @@ class SmartSheet
   {
     if (this._columnNumbers !== null) return this._columnNumbers;
 
-    const colLetters = this.getColumnLetters();
+    const columnLetters = this.getColumnLetters();
     this._columnNumbers = {};
-    for (const name in colLetters) {
-      const letter = colLetters[name];
-      this._columnNumbers[name] = letter
+    for (const columnName in columnLetters) {
+      const columnLetter = columnLetters[columnName];
+      this._columnNumbers[columnName] = columnLetter
         .split('')
         .reduce((total, char) => total * 26 + (char.charCodeAt(0) - 64), 0);
     }
@@ -156,9 +158,9 @@ class SmartSheet
   }
 
   /**
-   * Returns a mapping of named range names to their A1-style notations (in uppercase).
+   * Returns a mapping of named range names to their A1Notations (in uppercase).
    *
-   * @returns {Object.<string, string>} An object mapping named range names to notations.
+   * @returns {Object.<string, string>} A map of namedRange → A1Notation.
    */
   getNamedRangeNotations()
   {
@@ -176,59 +178,102 @@ class SmartSheet
   /**
    * Returns all values from the specified column name, excluding header rows.
    *
-   * @param {string} colName - The name of the column as defined in config.
-   * @returns {any[]} Array of values from that column.
+   * @param {string} columnName - The name of the column as defined in config.
+   * @returns {any[]} 1-D array of values from that column.
    */
-  getColumnValues(colName)
+  getColumnValues(columnName)
   {
-    const headerRows = this.getHeaderRowCount();
-    const lastRow = this.sheet.getLastRow();
-    const col = this.getColumnNumbers()[colName];
+    const headerRowCount = this.getHeaderRowCount();
+    const columnName = this.getColumnNumbers()[columnName];
 
-    if (!col) throw new Error(`Unknown column name: ${colName}`);
+    if (!columnName) throw new Error(`Unknown column name: ${columnName}`);
 
-    const range = this.sheet.getRange(headerRows + 1, col, lastRow - headerRows, 1);
+    const maxRows = this.sheet.getMaxRows();
+    const lastRow = this.sheet.getRange(maxRows, columnName)
+                              .getNextDataCell(SpreadsheetApp.Direction.UP)
+                              .getRow();
+
+    // If there's no data below headerRows, return empty array
+    if (lastRow <= headerRowCount) return [];
+
+    const range = this.sheet.getRange(headerRowCount + 1, columnName, lastRow - headerRowCount, 1);
     return range.getValues().flat();
   }
 
   /**
-   * Returns all values in the specified row as a flat array.
-   * Returns null if the row is within the configured header rows.
+   * Sets values in a column by column name, starting after the header rows.
+   * Automatically expands the sheet if needed.
+   *
+   * @param {string} columnName - The logical column name.
+   * @param {any[][]} value - A 2D array of values to write into the column.
+   * @returns {void}
+   * @throws {Error} If column name is invalid or value is not a 2D array.
+   */
+  setColumnValues(columnName, value)
+  {
+    if (!Array.isArray(value) || !Array.isArray(value[0])) {
+      throw new Error('Value must be a 2D array.');
+    }
+
+    const headerRowCount = this.getHeaderRowCount();
+    const columnLetters = this.getColumnLetters();
+    const columnLetter = columnLetters[columnName];
+
+    if (!columnLetter) {
+      throw new Error(`Unknown column name: ${columnName}`);
+    }
+
+    const startRow = headerRowCount + 1;
+    const endRow = headerRowCount + value.length;
+    const maxRow = this.sheet.getMaxRows();
+
+    if (endRow > maxRow) {
+      this.sheet.insertRowsAfter(maxRow, endRow - maxRow);
+    }
+
+    const rangeNotation = `${columnLetter}${startRow}:${columnLetter}${endRow}`;
+    this.sheet.getRange(rangeNotation).setValues(value);
+  }
+
+  /**
+   * Returns all values in the specified row as a 1D array.
+   * Returns null if the row is within the configured header rows or if the sheet has no data.
    * Throws an error if the sheet has no data.
    * 
-   * @param {number} rowNumber - Actual 1-based row number in the sheet.
-   * @returns {any[] | null} Array of values from the row, or null if within header.
-   * @throws {Error} If the sheet has no data.
+   * @param {number} rowNumber - The 1-based row-number from the sheet.
+   * @returns {any[] | null} 1D array of values from the row, or null if within header.
    */
   getRowValues(rowNumber)
   {
     const headerRowCount = this.getHeaderRowCount();
-    if (rowNumber <= headerRowCount) return null;
+    const lastColumn = this.sheet.getLastColumn();
+    if (
+      rowNumber <= headerRowCount ||
+      lastColumn === 0 // sheet contains no data, not even header
+    ) return null;
 
-    const lastCol = this.sheet.getLastColumn();
-    if (lastCol === 0) throw new Error(`Sheet "${this.sheetName}" has no data.`);
-
-    const range = this.sheet.getRange(rowNumber, 1, 1, lastCol);
-    return range.getValues()[0];
+    return this.sheet.getRange(rowNumber, 1, 1, lastColumn).getValues()[0];
   }
 
   /**
    * Returns a row of data as an object mapping column names to values.
    *
-   * @param {number} rowNumber - The row number (1-based).
-   * @returns {Object<string, any> || null} Object of column name → cell value, or null if within header.
+   * @param {number} rowNumber - The 1-based row-number from the sheet.
+   * @returns {Object<string, any> | null} Object of columnName → value, or null if within header.
    */
   getRowData(rowNumber)
   {
     const headerRowCount = this.getHeaderRowCount();
     if (rowNumber <= headerRowCount) return null;
 
-    const colNumbers = this.getColumnNumbers();
-    const result = {};
+    const columnNumbers = this.getColumnNumbers();
+    const rowValues = this.getRowValues(rowNumber);
+    if (!rowValues) return null; // just chain the null
 
-    for (const colName in colNumbers) {
-      const col = colNumbers[colName];
-      result[colName] = this.sheet.getRange(rowNumber, col).getValue();
+    const result = {};
+    for (const columnName in columnNumbers) {
+      const columnNumber = columnNumbers[columnName];
+      result[columnName] = rowValues[columnNumber - 1];
     }
 
     return result;
@@ -250,13 +295,13 @@ class SmartSheet
   /**
    * Returns the validation rule for a column name, if any.
    *
-   * @param {string} colName - The logical column name.
+   * @param {string} columnName - The logical column name.
    * @returns {GoogleAppsScript.Spreadsheet.DataValidation | null}
    */
-  getColumnValidationRule(colName)
+  getColumnValidationRule(columnName)
   {
-    const ruleFn = SHEETCONFIG[this.sheetName]?.validationRules?.column;
-    return typeof ruleFn === 'function' ? ruleFn(colName) : null;
+    const ruleFn = this.sheetConfig.validationRules?.column;
+    return typeof ruleFn === 'function' ? ruleFn(columnName) : null;
   }
 
   /**
@@ -267,21 +312,21 @@ class SmartSheet
    */
   getRangeValidationRule(rangeName)
   {
-    const ruleFn = SHEETCONFIG[this.sheetName]?.validationRules?.range;
+    const ruleFn = this.sheetConfig.validationRules?.range;
     return typeof ruleFn === 'function' ? ruleFn(rangeName) : null;
   }
 
   /**
    * Retrieves the conditional formatting rule builder function for a given column name.
    *
-   * @param {string} colName - The name of the column (e.g., "department").
+   * @param {string} columnName - The name of the column (e.g., "department").
    * @returns {(function(GoogleAppsScript.Spreadsheet.Sheet, SmartSheet): GoogleAppsScript.Spreadsheet.ConditionalFormatRuleBuilder[])|null}
    *   A function that returns conditional formatting rule builders, or null if not defined.
    */
-  getColumnFormattingRule(colName)
+  getColumnFormattingRule(columnName)
   {
-    const ruleFn = SHEETCONFIG[this.sheetName]?.formattingRules?.column;
-    return typeof ruleFn === 'function' ? ruleFn(colName) : null;
+    const ruleFn = this.sheetConfig.formattingRules?.column;
+    return typeof ruleFn === 'function' ? ruleFn(columnName) : null;
   }
 
   /**
@@ -293,7 +338,7 @@ class SmartSheet
    */
   getRangeFormattingRule(rangeName)
   {
-    const ruleFn = SHEETCONFIG[this.sheetName]?.formattingRules?.range;
+    const ruleFn = this.sheetConfig.formattingRules?.range;
     return typeof ruleFn === 'function' ? ruleFn(rangeName) : null;
   }
 
