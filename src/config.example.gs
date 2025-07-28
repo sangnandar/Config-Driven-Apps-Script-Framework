@@ -81,11 +81,11 @@ const SHEETCONFIG = readOnlyObject({
     layout: {
       headerRows: 4,
       columns: {
-        A   : { name: 'name',       type: 'string' },
-        B   : { name: 'age',        type: 'number' },
-        C   : { name: 'joinDate',   type: 'date'   },
-        D   : { name: 'department', type: 'string' },
-        E   : { name: 'score',      type: 'number' },
+        A   : { name: 'name',               type: 'string' },
+        B   : { name: 'age',                type: 'number' },
+        C   : { name: 'joinDate',           type: 'date'   },
+        D   : { name: 'department',         type: 'string' },
+        E   : { name: 'score',              type: 'number' },
         F   : {
           name: 'relativeScore',
           formula: 'IF(ISBLANK($score), "", $score / AVERAGE(E5:E) )',
@@ -94,15 +94,15 @@ const SHEETCONFIG = readOnlyObject({
         // <add more columns...>
       },
       namedRanges: {
-        'B1' : { name: 'selectDepartment', type: 'string' },
-        'B2' : { name: 'selectScore',      type: 'string' },
+        'B1' : { name: 'selectDepartment',  type: 'string' },
+        'B2' : { name: 'selectScore',       type: 'string' },
         'D1' : {
           name: 'cellD1',
           formula: '$selectDepartment',
           lock: true
         },
         'E1' : {
-          name: 'cellE1', // name can't be the same with custom-function-name or A1 notation
+          name: 'cellE1', // the name of a named-range cannot be the same with custom-function-name or A1 notation
           args: ['selectDepartment'],
           formula: forE1, // use custom-function
           lock: true
