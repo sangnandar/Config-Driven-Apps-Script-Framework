@@ -8,6 +8,17 @@ This project is the final iteration of concepts developed in previous works:
 - [📋 Lookup Table Pattern in Apps Script](https://github.com/sangnandar/Lookup-Table-Pattern)
 - [⚡ Event Dispatcher in Apps Script](https://github.com/sangnandar/Event-Dispatcher-in-Apps-Script)
 
+## 📦 Now Available as a Library
+
+This repo has graduated to a **Google Apps Script library**.
+
+* **Library Name**: `CDAS`
+* **Script ID**: `13zr9CnmnTXA7V4f2ImyQYyvOnq3BF-dUcAJAWhSmagu33Fk6DJcXzEGv`
+
+You can include it in your project by navigating to:
+**Apps Script > Libraries > Add a Library** and pasting the Script ID.
+
+---
 
 ## ✨ Features
 
